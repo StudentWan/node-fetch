@@ -47,6 +47,7 @@ const supportedSchemas = new Set(['data:', 'http:', 'https:']);
  */
 export default async function fetch(url, options_) {
 	return new Promise((resolve, reject) => {
+		const _fetchPrepareStart = performance.now();
 		// Build request object
 		const request = new Request(url, options_);
 		const {parsedURL, options} = getNodeRequestOptions(request);
@@ -92,6 +93,8 @@ export default async function fetch(url, options_) {
 
 		// Send request
 		const request_ = send(parsedURL.toString(), options);
+		const _requestStart = performance.now();
+		const _fetchPrepareCost = _requestStart - _fetchPrepareStart;
 
 		if (signal) {
 			signal.addEventListener('abort', abortAndFinalize);
@@ -136,6 +139,8 @@ export default async function fetch(url, options_) {
 		}
 
 		request_.on('response', response_ => {
+			const _responseHandleStart = performance.now();
+			const _requestCost = _responseHandleStart - _requestStart;
 			request_.setTimeout(0);
 			const headers = fromRawHeaders(response_.rawHeaders);
 
@@ -305,7 +310,11 @@ export default async function fetch(url, options_) {
 						reject(error);
 					}
 				});
+				const _responseHandleCost = performance.now() - _responseHandleStart
 				response = new Response(body, responseOptions);
+				response.headers.set("fetch-prepare-cost", _fetchPrepareCost);
+				response.headers.set("request-cost", _requestCost);
+				response.headers.set("response-handle-cost", _responseHandleCost);
 				resolve(response);
 				return;
 			}
